@@ -46,6 +46,55 @@ API Keys can be created in the G-Prophet platform under "Settings → API Key Ma
 - Rotate keys periodically and revoke compromised keys immediately
 - Never commit API keys to version control or share them publicly
 
+## Rate Limiting
+
+All API requests are subject to per-key rate limiting (fixed window, per minute).
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit` | Maximum requests allowed per minute |
+| `X-RateLimit-Remaining` | Remaining requests in current window |
+| `X-RateLimit-Reset` | Seconds until the rate limit window resets |
+
+Default limit is **60 requests per minute** per API Key. When exceeded, the API returns HTTP 429:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMITED",
+    "message": "Rate limit exceeded. Max 60 requests per minute.",
+    "details": {
+      "limit_per_minute": 60,
+      "retry_after_seconds": 45
+    }
+  }
+}
+```
+
+The response includes a `Retry-After` header indicating how many seconds to wait.
+
+## Quota Management
+
+Each API Key has configurable daily and monthly call quotas. Quota = 0 means unlimited.
+
+When quota is exceeded, the API returns HTTP 429:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "QUOTA_EXCEEDED",
+    "message": "Daily quota exceeded (100/100)",
+    "details": {
+      "resolution": "Upgrade your plan or wait for quota reset."
+    }
+  }
+}
+```
+
+Check your current quota usage via `GET /account/balance`.
+
 ## Unified Response Format
 
 ### Success Response
@@ -66,6 +115,8 @@ API Keys can be created in the G-Prophet platform under "Settings → API Key Ma
 
 ### Error Response
 
+Errors return the appropriate HTTP status code (401, 402, 403, 404, 429, 500, 503) along with a JSON body:
+
 ```json
 {
   "success": false,
@@ -79,6 +130,32 @@ API Keys can be created in the G-Prophet platform under "Settings → API Key Ma
 }
 ```
 
+### Insufficient Points Response (402)
+
+When points are insufficient, the API returns a detailed 402 response with actionable guidance:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INSUFFICIENT_POINTS",
+    "message": "Insufficient points. Required: 20, available: 5.",
+    "details": {
+      "required": 20,
+      "available": 5,
+      "shortage": 15,
+      "resolution": {
+        "actions": [
+          { "action": "register", "url": "https://gprophet.com/register" },
+          { "action": "recharge", "url": "https://gprophet.com/membership" },
+          { "action": "subscribe", "url": "https://gprophet.com/membership" }
+        ]
+      }
+    }
+  }
+}
+```
+
 ## Points Cost
 
 | Skill | Endpoint | Points/Call |
@@ -88,14 +165,18 @@ API Keys can be created in the G-Prophet platform under "Settings → API Key Ma
 | Quote | `GET /market-data/quote` | 5 |
 | History | `GET /market-data/history` | 5 |
 | Search | `GET /market-data/search` | 5 |
+| Batch Quote | `POST /market-data/batch-quote` | 5 × number of symbols |
 | Technical Analysis | `POST /technical/analyze` | 5 |
 | Fear & Greed Index | `GET /sentiment/fear-greed` | 5 |
 | Market Overview | `GET /sentiment/market-overview` | 5 |
+| AI Stock Analysis | `POST /analysis/stock` | 58 |
 | Deep Analysis | `POST /analysis/comprehensive` | 150 |
 | Task Polling | `GET /analysis/task/{task_id}` | 0 (free) |
+| Account Balance | `GET /account/balance` | 0 (free) |
+| Usage Statistics | `GET /account/usage` | 0 (free) |
+| API Info | `GET /info` | 0 (free) |
 
 ---
-
 ## Skill 1: Stock Price Prediction
 
 Predict future stock/cryptocurrency price movements using AI algorithms. Supports G-Prophet2026V1, LSTM, Transformer, and more.
@@ -208,7 +289,7 @@ curl -X POST "https://www.gprophet.com/api/external/v1/predictions/compare" \
 
 ## Skill 2: Market Data
 
-Get real-time quotes, historical OHLCV data, and search for stocks/crypto. Each call costs 5 points.
+Get real-time quotes, historical OHLCV data, search for stocks/crypto, and batch quotes. Each call costs 5 points (batch = 5 × count).
 
 ### GET /market-data/quote
 
@@ -313,6 +394,65 @@ curl "https://www.gprophet.com/api/external/v1/market-data/search?keyword=apple&
   -H "X-API-Key: gp_sk_[REDACTED]_your_key"
 ```
 
+### POST /market-data/batch-quote
+
+Get quotes for multiple symbols in a single request. Max 20 symbols. Cost = 5 points × number of symbols.
+
+**Request Body (JSON):**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| symbols | string[] | ✅ | List of stock/crypto tickers (max 20) |
+| market | string | ✅ | Market code: `US`, `CN`, `HK`, `CRYPTO` |
+
+**Example Request:**
+
+```bash
+curl -X POST "https://www.gprophet.com/api/external/v1/market-data/batch-quote" \
+  -H "X-API-Key: gp_sk_[REDACTED]_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"symbols": ["AAPL", "TSLA", "GOOGL"], "market": "US"}'
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "market": "US",
+    "count": 3,
+    "successful": 3,
+    "results": [
+      {
+        "symbol": "AAPL",
+        "name": "Apple Inc.",
+        "success": true,
+        "price": 185.50,
+        "change": 2.30,
+        "change_percent": 1.26
+      },
+      {
+        "symbol": "TSLA",
+        "name": "Tesla Inc.",
+        "success": true,
+        "price": 245.00,
+        "change": -3.20,
+        "change_percent": -1.29
+      },
+      {
+        "symbol": "GOOGL",
+        "name": "Alphabet Inc.",
+        "success": true,
+        "price": 142.80,
+        "change": 1.10,
+        "change_percent": 0.78
+      }
+    ],
+    "points_consumed": 15
+  }
+}
+```
 ---
 
 ## Skill 3: Technical Analysis
@@ -421,7 +561,59 @@ curl "https://www.gprophet.com/api/external/v1/sentiment/market-overview?market=
 
 ---
 
-## Skill 5: Deep Analysis (Async)
+## Skill 5: AI Stock Analysis (Async)
+
+Single-stock AI analysis report using LLM. Costs 58 points. Supports CN, US, CRYPTO markets.
+
+> ⚠️ **Async Mode**: Analysis typically takes 15-60 seconds, so this endpoint uses async mode.
+> 1. `POST /analysis/stock` → Returns `task_id` immediately
+> 2. `GET /analysis/task/{task_id}` → Poll for status; get results when `status=completed`
+>
+> Recommended polling interval: 5 seconds. Max wait: 5 minutes.
+
+### POST /analysis/stock
+
+Submit a stock analysis task. Returns task ID immediately.
+
+**Request Body (JSON):**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| symbol | string | ✅ | - | Stock/crypto ticker |
+| market | string | ✅ | - | Market code: `US`, `CN`, `CRYPTO` |
+| locale | string | No | zh-CN | Report language: `zh-CN`, `en-US` |
+| callback_url | string | No | - | Webhook URL; results are POSTed on completion |
+
+**Example Request:**
+
+```bash
+curl -X POST "https://www.gprophet.com/api/external/v1/analysis/stock" \
+  -H "X-API-Key: gp_sk_[REDACTED]_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"symbol": "AAPL", "market": "US", "locale": "en-US"}'
+```
+
+**Example Response (immediate):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "task_id": "task_abc123def456",
+    "symbol": "AAPL",
+    "market": "US",
+    "status": "pending",
+    "points_consumed": 58,
+    "poll_url": "/api/external/v1/analysis/task/task_abc123def456",
+    "callback_url": null,
+    "message": "Stock analysis started. Poll the task URL every 5 seconds for results."
+  }
+}
+```
+
+---
+
+## Skill 6: Deep Analysis (Async)
 
 Multi-agent collaborative deep analysis evaluating stocks from 5 dimensions: technical, fundamental, capital flow, sentiment, and macro environment. Costs 150 points.
 
@@ -442,6 +634,7 @@ Submit a deep analysis task. Returns task ID immediately.
 | symbol | string | ✅ | - | Stock/crypto ticker |
 | market | string | ✅ | - | Market code: `US`, `CN`, `HK`, `CRYPTO` |
 | locale | string | No | zh-CN | Report language: `zh-CN`, `en-US` |
+| callback_url | string | No | - | Webhook URL; results are POSTed on completion |
 
 **Example Request:**
 
@@ -464,8 +657,33 @@ curl -X POST "https://www.gprophet.com/api/external/v1/analysis/comprehensive" \
     "status": "pending",
     "points_consumed": 150,
     "poll_url": "/api/external/v1/analysis/task/task_abc123def456",
+    "callback_url": null,
     "message": "Analysis started. Poll the task URL every 5 seconds for results."
   }
+}
+```
+
+### Webhook Callback
+
+Both `/analysis/stock` and `/analysis/comprehensive` accept an optional `callback_url` parameter. When provided, the API will POST the task result to that URL upon completion or failure:
+
+**Callback Payload (success):**
+
+```json
+{
+  "task_id": "task_abc123def456",
+  "status": "completed",
+  "result": { ... }
+}
+```
+
+**Callback Payload (failure):**
+
+```json
+{
+  "task_id": "task_abc123def456",
+  "status": "failed",
+  "error": "Analysis service timeout"
 }
 ```
 
@@ -477,32 +695,9 @@ Poll analysis task status and results.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| task_id | string | Task ID returned by POST /analysis/comprehensive |
-
-**Example Request:**
-
-```bash
-curl "https://www.gprophet.com/api/external/v1/analysis/task/task_abc123def456" \
-  -H "X-API-Key: gp_sk_[REDACTED]_your_key"
-```
+| task_id | string | Task ID returned by analysis endpoints |
 
 **Status Flow:** `pending` → `running` (progress 0-100) → `completed` / `failed`
-
-**Example Response (in progress):**
-
-```json
-{
-  "success": true,
-  "data": {
-    "task_id": "task_abc123def456",
-    "status": "running",
-    "progress": 45,
-    "message": "Analyzing fundamental data...",
-    "result": null,
-    "error": null
-  }
-}
-```
 
 **Example Response (completed):**
 
@@ -521,38 +716,13 @@ curl "https://www.gprophet.com/api/external/v1/analysis/task/task_abc123def456" 
         "overall_rating": "bullish",
         "confidence": 0.75,
         "agents": {
-          "technical": {
-            "rating": "bullish",
-            "confidence": 0.80,
-            "key_points": ["MACD golden cross", "Above 20-day MA"],
-            "summary": "Technical outlook is bullish..."
-          },
-          "fundamental": {
-            "rating": "neutral",
-            "confidence": 0.65,
-            "key_points": ["Reasonable PE", "Revenue growth slowing"],
-            "summary": "Fundamentals are neutral..."
-          },
-          "capital_flow": {
-            "rating": "bullish",
-            "confidence": 0.70,
-            "key_points": ["Net institutional inflow"],
-            "summary": "Capital flow is positive..."
-          },
-          "sentiment": {
-            "rating": "neutral",
-            "confidence": 0.60,
-            "key_points": ["Stable market sentiment"],
-            "summary": "Sentiment is neutral..."
-          },
-          "macro": {
-            "rating": "cautious",
-            "confidence": 0.55,
-            "key_points": ["Rate hike expectations", "Geopolitical risks"],
-            "summary": "Macro environment is cautious..."
-          }
+          "technical": { "rating": "bullish", "confidence": 0.80 },
+          "fundamental": { "rating": "neutral", "confidence": 0.65 },
+          "capital_flow": { "rating": "bullish", "confidence": 0.70 },
+          "sentiment": { "rating": "neutral", "confidence": 0.60 },
+          "macro": { "rating": "cautious", "confidence": 0.55 }
         },
-        "final_recommendation": "Short-term bullish, consider buying on dips, watch macro risks",
+        "final_recommendation": "Short-term bullish, consider buying on dips",
         "risk_level": "medium"
       }
     },
@@ -560,21 +730,90 @@ curl "https://www.gprophet.com/api/external/v1/analysis/task/task_abc123def456" 
   }
 }
 ```
+---
 
-**Example Response (failed):**
+## Account Endpoints
+
+### GET /account/balance
+
+Check current API Key's points balance and quota usage. Free, no points consumed.
+
+**Example Request:**
+
+```bash
+curl "https://www.gprophet.com/api/external/v1/account/balance" \
+  -H "X-API-Key: gp_sk_[REDACTED]_your_key"
+```
+
+**Example Response:**
 
 ```json
 {
   "success": true,
   "data": {
-    "task_id": "task_abc123def456",
-    "status": "failed",
-    "progress": 100,
-    "message": "Analysis service timeout",
-    "result": null,
-    "error": "Analysis service timeout"
+    "available_points": 1250,
+    "key_name": "My Trading Bot",
+    "key_prefix": "gp_sk_abc",
+    "scopes": ["predictions", "market_data", "technical", "sentiment", "analysis"],
+    "rate_limit_per_minute": 60,
+    "daily_quota": 1000,
+    "daily_used": 42,
+    "monthly_quota": 0,
+    "monthly_used": 856
   }
 }
+```
+
+### GET /account/usage
+
+Get call history statistics for the current API Key. Free, no points consumed.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| days | integer | No | 7 | History days, range 1-90 |
+
+**Example Request:**
+
+```bash
+curl "https://www.gprophet.com/api/external/v1/account/usage?days=7" \
+  -H "X-API-Key: gp_sk_[REDACTED]_your_key"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "key_prefix": "gp_sk_abc",
+    "period_days": 7,
+    "daily": [
+      {
+        "date": "2026-03-09",
+        "total_calls": 85,
+        "success_calls": 82,
+        "avg_response_ms": 1250
+      }
+    ],
+    "by_endpoint": [
+      { "endpoint": "/api/external/v1/predictions/predict", "calls": 45 },
+      { "endpoint": "/api/external/v1/market-data/quote", "calls": 30 }
+    ]
+  }
+}
+```
+
+### GET /info
+
+Get API metadata: supported markets, algorithms, pricing table, authentication info. Free, no points consumed.
+
+**Example Request:**
+
+```bash
+curl "https://www.gprophet.com/api/external/v1/info" \
+  -H "X-API-Key: gp_sk_[REDACTED]_your_key"
 ```
 
 ---
@@ -590,9 +829,12 @@ curl "https://www.gprophet.com/api/external/v1/analysis/task/task_abc123def456" 
 | API_KEY_EXPIRED | 403 | API Key has expired |
 | INSUFFICIENT_SCOPE | 403 | API Key lacks permission for this Skill |
 | INSUFFICIENT_POINTS | 402 | Insufficient points |
-| POINTS_DEDUCTION_FAILED | 402 | Failed to deduct points |
+| POINTS_DEDUCTION_FAILED | 500 | Failed to deduct points |
 | OWNER_NOT_FOUND | 403 | API Key owner account not found |
+| RATE_LIMITED | 429 | Request frequency exceeded per-minute limit |
+| QUOTA_EXCEEDED | 429 | Daily or monthly call quota exhausted |
 | INVALID_MARKET | 400 | Unsupported market code |
+| UNSUPPORTED_MARKET | 400 | Market not supported for this endpoint |
 | SYMBOL_NOT_FOUND | 404 | Stock/crypto ticker not found |
 | NO_DATA | 404 | Unable to retrieve data |
 | TOO_MANY_ALGORITHMS | 400 | Too many algorithms (max 6) |
@@ -609,89 +851,87 @@ curl "https://www.gprophet.com/api/external/v1/analysis/task/task_abc123def456" 
 
 MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and other MCP-compatible agents:
 
-### gprophet_predict_stock
+### gprophet_predict
 
 ```json
 {
-  "name": "gprophet_predict_stock",
-  "description": "Predict future stock/cryptocurrency price movements using G-Prophet AI. Supports multiple algorithms (G-Prophet2026V1, LSTM, Transformer, etc.) and global markets (China A-shares, US, HK, Crypto).",
+  "name": "gprophet_predict",
+  "description": "Predict stock/crypto price using AI. Markets: US, CN, HK, CRYPTO. Algorithms: auto, gprophet2026v1, lstm, transformer, random_forest, ensemble.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "symbol": { "type": "string", "description": "Stock/crypto ticker, e.g. AAPL, 600519, BTCUSDT" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "description": "Market code" },
-      "days": { "type": "integer", "minimum": 1, "maximum": 30, "default": 7, "description": "Prediction days" },
-      "algorithm": { "type": "string", "enum": ["auto", "gprophet2026v1", "lstm", "transformer", "random_forest", "ensemble"], "default": "auto", "description": "Prediction algorithm" }
+      "symbol": { "type": "string", "description": "Stock/crypto symbol (e.g., AAPL, 600519, BTCUSDT)" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" },
+      "days": { "type": "integer", "minimum": 1, "maximum": 30, "default": 7 },
+      "algorithm": { "type": "string", "default": "auto" }
     },
-    "required": ["symbol", "market"]
+    "required": ["symbol"]
   }
 }
 ```
 
-### gprophet_compare_algorithms
+### gprophet_quote
 
 ```json
 {
-  "name": "gprophet_compare_algorithms",
-  "description": "Compare multiple AI algorithms predicting the same stock simultaneously. Returns each algorithm's result and the best recommendation.",
+  "name": "gprophet_quote",
+  "description": "Get real-time stock/crypto quote.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "symbol": { "type": "string", "description": "Stock/crypto ticker" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] },
-      "days": { "type": "integer", "minimum": 1, "maximum": 30, "default": 5 },
-      "algorithms": { "type": "array", "items": { "type": "string", "enum": ["gprophet2026v1", "lstm", "transformer", "random_forest", "ensemble"] }, "description": "Algorithm list, max 6" }
+      "symbol": { "type": "string", "description": "Stock/crypto symbol" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" }
     },
-    "required": ["symbol", "market"]
+    "required": ["symbol"]
   }
 }
 ```
 
-### gprophet_get_quote
+### gprophet_batch_quote
 
 ```json
 {
-  "name": "gprophet_get_quote",
-  "description": "Get real-time stock/cryptocurrency quote including price, change, volume.",
+  "name": "gprophet_batch_quote",
+  "description": "Get quotes for multiple symbols at once (max 20). Cost = 5 points × number of symbols.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "symbol": { "type": "string", "description": "Stock/crypto ticker" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] }
+      "symbols": { "type": "array", "items": { "type": "string" }, "description": "List of symbols (max 20)" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" }
     },
-    "required": ["symbol", "market"]
+    "required": ["symbols"]
   }
 }
 ```
 
-### gprophet_get_history
+### gprophet_history
 
 ```json
 {
-  "name": "gprophet_get_history",
-  "description": "Get historical OHLCV candlestick data for a stock/cryptocurrency.",
+  "name": "gprophet_history",
+  "description": "Get historical OHLCV price data.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "symbol": { "type": "string", "description": "Stock/crypto ticker" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] },
-      "period": { "type": "string", "enum": ["1w", "1m", "3m", "6m", "1y", "2y"], "default": "3m", "description": "Time range" }
+      "symbol": { "type": "string" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" },
+      "period": { "type": "string", "enum": ["1w", "1m", "3m", "6m", "1y", "2y"], "default": "3m" }
     },
-    "required": ["symbol", "market"]
+    "required": ["symbol"]
   }
 }
 ```
 
-### gprophet_search_stocks
+### gprophet_search
 
 ```json
 {
-  "name": "gprophet_search_stocks",
-  "description": "Search for stocks/cryptocurrencies by keyword.",
+  "name": "gprophet_search",
+  "description": "Search for stocks/crypto by keyword.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "keyword": { "type": "string", "description": "Search keyword" },
+      "keyword": { "type": "string" },
       "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" },
       "limit": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 }
     },
@@ -700,34 +940,34 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
 }
 ```
 
-### gprophet_technical_analysis
+### gprophet_technical
 
 ```json
 {
-  "name": "gprophet_technical_analysis",
-  "description": "Calculate technical indicators (RSI, MACD, Bollinger Bands, KDJ, etc.) and generate trading signals.",
+  "name": "gprophet_technical",
+  "description": "Calculate technical indicators (RSI, MACD, Bollinger, KDJ, SMA, EMA) and generate trading signals.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "symbol": { "type": "string", "description": "Stock/crypto ticker" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] },
-      "indicators": { "type": "array", "items": { "type": "string", "enum": ["rsi", "macd", "bollinger", "kdj", "sma", "ema"] }, "default": ["rsi", "macd", "bollinger", "kdj"], "description": "Technical indicators to calculate" }
+      "symbol": { "type": "string" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" },
+      "indicators": { "type": "array", "items": { "type": "string", "enum": ["rsi", "macd", "bollinger", "kdj", "sma", "ema"] }, "default": ["rsi", "macd", "bollinger", "kdj"] }
     },
-    "required": ["symbol", "market"]
+    "required": ["symbol"]
   }
 }
 ```
 
-### gprophet_fear_greed_index
+### gprophet_fear_greed
 
 ```json
 {
-  "name": "gprophet_fear_greed_index",
-  "description": "Get the crypto market Fear & Greed Index reflecting market sentiment.",
+  "name": "gprophet_fear_greed",
+  "description": "Get crypto market Fear & Greed Index.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "days": { "type": "integer", "minimum": 1, "maximum": 365, "default": 1, "description": "History days, 1=current only" }
+      "days": { "type": "integer", "minimum": 1, "maximum": 365, "default": 1 }
     }
   }
 }
@@ -738,50 +978,87 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
 ```json
 {
   "name": "gprophet_market_overview",
-  "description": "Get comprehensive market overview including breadth, hot sectors, and major indices.",
+  "description": "Get market overview: breadth, hot concepts, major indices.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "market": { "type": "string", "enum": ["CN", "US"], "default": "CN", "description": "Market code" }
+      "market": { "type": "string", "enum": ["CN", "US"], "default": "CN" }
     }
   }
 }
 ```
 
-### gprophet_deep_analysis
+### gprophet_analyze_stock
 
 ```json
 {
-  "name": "gprophet_deep_analysis",
-  "description": "Multi-agent collaborative deep analysis (async mode). Submits an analysis task and returns task_id immediately. Use gprophet_get_analysis_task to poll for results. Evaluates stocks from 5 dimensions: technical, fundamental, capital flow, sentiment, and macro environment. Costs 150 points.",
+  "name": "gprophet_analyze_stock",
+  "description": "Run AI stock analysis report (58 points, async). Returns task_id for polling via gprophet_task_status. Supports US, CN, CRYPTO markets.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "symbol": { "type": "string", "description": "Stock/crypto ticker" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] },
-      "locale": { "type": "string", "enum": ["zh-CN", "en-US"], "default": "zh-CN", "description": "Report language" }
+      "symbol": { "type": "string" },
+      "market": { "type": "string", "enum": ["US", "CN", "CRYPTO"], "default": "US" },
+      "locale": { "type": "string", "enum": ["zh-CN", "en-US"], "default": "en-US" }
     },
-    "required": ["symbol", "market"]
+    "required": ["symbol"]
   }
 }
 ```
 
-### gprophet_get_analysis_task
+### gprophet_analyze_comprehensive
 
 ```json
 {
-  "name": "gprophet_get_analysis_task",
-  "description": "Poll deep analysis task status. When status is 'completed', the result field contains the full analysis. When status is 'failed', the error field contains the error message. Recommended polling interval: 5 seconds. Max wait: 5 minutes.",
+  "name": "gprophet_analyze_comprehensive",
+  "description": "Run multi-agent comprehensive analysis (150 points, async). Returns task_id for polling via gprophet_task_status. Evaluates from 5 dimensions: technical, fundamental, capital flow, sentiment, macro.",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "task_id": { "type": "string", "description": "Task ID returned by gprophet_deep_analysis" }
+      "symbol": { "type": "string" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" },
+      "locale": { "type": "string", "enum": ["zh-CN", "en-US"], "default": "en-US" }
+    },
+    "required": ["symbol"]
+  }
+}
+```
+
+### gprophet_task_status
+
+```json
+{
+  "name": "gprophet_task_status",
+  "description": "Check the status of an async analysis task. Poll every 5 seconds until status is 'completed' or 'failed'.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "task_id": { "type": "string", "description": "Task ID returned by analysis endpoints" }
     },
     "required": ["task_id"]
   }
 }
 ```
 
+### gprophet_balance
+
+```json
+{
+  "name": "gprophet_balance",
+  "description": "Check current points balance, quota usage, and API key info. Free.",
+  "inputSchema": { "type": "object", "properties": {} }
+}
+```
+
+### gprophet_info
+
+```json
+{
+  "name": "gprophet_info",
+  "description": "Get API metadata: supported markets, algorithms, pricing table. Free.",
+  "inputSchema": { "type": "object", "properties": {} }
+}
+```
 ---
 
 ## Integration Guide
@@ -789,26 +1066,89 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
 ### Typical Prediction Flow
 
 ```
-1. Call gprophet_predict_stock to get prediction results (sync, typically 5-30 seconds)
+1. Call gprophet_predict to get prediction results (sync, typically 5-30 seconds)
 2. Use data.direction and data.confidence to assess the trend
-3. Optional: Call gprophet_technical_analysis for technical confirmation
+3. Optional: Call gprophet_technical for technical confirmation
+```
+
+### Typical Stock Analysis Flow
+
+```
+1. Call gprophet_analyze_stock to submit analysis task → get task_id
+2. Poll gprophet_task_status every 5 seconds
+3. When status = "completed", read the analysis report from result
+4. When status = "failed", read the failure reason from error
 ```
 
 ### Typical Deep Analysis Flow
 
 ```
-1. Call gprophet_deep_analysis to submit analysis task → get task_id
-2. Poll gprophet_get_analysis_task every 5 seconds
+1. Call gprophet_analyze_comprehensive to submit analysis task → get task_id
+2. Poll gprophet_task_status every 5 seconds
 3. When status = "completed", read the full report from result.analysis
 4. When status = "failed", read the failure reason from error
 ```
 
+### Webhook Integration Flow
+
+```
+1. Call POST /analysis/stock or /analysis/comprehensive with callback_url
+2. Continue processing other tasks (no need to poll)
+3. Receive POST to your callback_url when task completes or fails
+4. Verify task_id and process the result
+```
+
 ### Agent Integration Tips
 
-- **Search before predicting**: If unsure about a ticker, use `gprophet_search_stocks` to confirm first
+- **Search before predicting**: If unsure about a ticker, use `gprophet_search` to confirm first
 - **Combine skills**: Prediction + Technical Analysis + Sentiment = more comprehensive judgment
-- **Points management**: Deep analysis costs 150 points; use it selectively for key targets
-- **Error handling**: Check the `success` field; on failure, refer to `error.code` for retry logic or user messaging
+- **Points management**: Use `gprophet_balance` to check points before expensive operations
+- **Batch operations**: Use `gprophet_batch_quote` instead of multiple single quotes to save API calls
+- **Error handling**: Check the `success` field; on failure, refer to `error.code` for retry logic
+- **Rate limiting**: Respect `X-RateLimit-Remaining` header; back off when approaching 0
+- **Webhooks**: Use `callback_url` for analysis tasks to avoid polling overhead
+
+### Python SDK
+
+Install the official Python SDK for easier integration:
+
+```bash
+pip install gprophet
+```
+
+```python
+from gprophet import GProphet
+
+client = GProphet(api_key="gp_sk_...")
+
+# Predict stock price
+result = client.predict("AAPL", market="US", days=7)
+
+# Batch quote
+quotes = client.batch_quote(["AAPL", "TSLA", "GOOGL"], market="US")
+
+# Stock analysis (auto-polls until complete)
+analysis = client.analyze_stock("AAPL", market="US", wait=True)
+
+# Check balance
+balance = client.balance()
+```
+
+### MCP Server
+
+Run the standalone MCP server for AI agent integration:
+
+```json
+{
+  "mcpServers": {
+    "gprophet": {
+      "command": "python",
+      "args": ["path/to/gprophet_mcp_server.py"],
+      "env": { "GPROPHET_API_KEY": "gp_sk_..." }
+    }
+  }
+}
+```
 
 ---
 
@@ -826,7 +1166,7 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
 > - `6xxxxx` = Shanghai Stock Exchange (Main Board / STAR Market)
 > - `0xxxxx` = Shenzhen Stock Exchange (Main Board / SME Board)
 > - `3xxxxx` = Shenzhen Stock Exchange (ChiNext / Growth Enterprise Market)
-> - Make sure to pass the correct 6-digit code, e.g. `600986` (Zhewenhulan) and `000001` (Ping An Bank) are different stocks
+> - Make sure to pass the correct 6-digit code, e.g. `600986` and `000001` are different stocks
 
 ## Supported Prediction Algorithms
 

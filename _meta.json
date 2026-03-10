@@ -1,10 +1,10 @@
 {
   "name": "gprophet-api",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "author": "G-Prophet",
   "description": "AI-powered stock prediction and market analysis for global markets",
   "category": "finance",
-  "tags": ["stock", "prediction", "trading", "crypto", "market-analysis"],
+  "tags": ["stock", "prediction", "trading", "crypto", "market-analysis", "technical-analysis", "ai"],
   "license": "MIT",
   "homepage": "https://www.gprophet.com",
   "credentials": {
