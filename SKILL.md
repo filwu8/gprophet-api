@@ -208,6 +208,7 @@ curl -X POST "https://www.gprophet.com/api/external/v1/predictions/predict" \
   "success": true,
   "data": {
     "symbol": "AAPL",
+    "name": "Apple Inc.",
     "market": "US",
     "current_price": 185.50,
     "predicted_price": 191.20,
@@ -256,6 +257,7 @@ curl -X POST "https://www.gprophet.com/api/external/v1/predictions/compare" \
   "success": true,
   "data": {
     "symbol": "TSLA",
+    "name": "Tesla Inc.",
     "market": "US",
     "current_price": 245.00,
     "prediction_days": 5,
