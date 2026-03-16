@@ -861,11 +861,11 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
     "type": "object",
     "properties": {
       "symbol": { "type": "string", "description": "Stock/crypto symbol (e.g., AAPL, 600519, BTCUSDT)" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] },
       "days": { "type": "integer", "minimum": 1, "maximum": 30, "default": 7 },
       "algorithm": { "type": "string", "default": "auto" }
     },
-    "required": ["symbol"]
+    "required": ["symbol", "market"]
   }
 }
 ```
@@ -880,9 +880,9 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
     "type": "object",
     "properties": {
       "symbol": { "type": "string", "description": "Stock/crypto symbol" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" }
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] }
     },
-    "required": ["symbol"]
+    "required": ["symbol", "market"]
   }
 }
 ```
@@ -897,9 +897,9 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
     "type": "object",
     "properties": {
       "symbols": { "type": "array", "items": { "type": "string" }, "description": "List of symbols (max 20)" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" }
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] }
     },
-    "required": ["symbols"]
+    "required": ["symbols", "market"]
   }
 }
 ```
@@ -914,10 +914,10 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
     "type": "object",
     "properties": {
       "symbol": { "type": "string" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] },
       "period": { "type": "string", "enum": ["1w", "1m", "3m", "6m", "1y", "2y"], "default": "3m" }
     },
-    "required": ["symbol"]
+    "required": ["symbol", "market"]
   }
 }
 ```
@@ -950,10 +950,10 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
     "type": "object",
     "properties": {
       "symbol": { "type": "string" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] },
       "indicators": { "type": "array", "items": { "type": "string", "enum": ["rsi", "macd", "bollinger", "kdj", "sma", "ema"] }, "default": ["rsi", "macd", "bollinger", "kdj"] }
     },
-    "required": ["symbol"]
+    "required": ["symbol", "market"]
   }
 }
 ```
@@ -998,10 +998,10 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
     "type": "object",
     "properties": {
       "symbol": { "type": "string" },
-      "market": { "type": "string", "enum": ["US", "CN", "CRYPTO"], "default": "US" },
+      "market": { "type": "string", "enum": ["US", "CN", "CRYPTO"] },
       "locale": { "type": "string", "enum": ["zh-CN", "en-US"], "default": "en-US" }
     },
-    "required": ["symbol"]
+    "required": ["symbol", "market"]
   }
 }
 ```
@@ -1016,10 +1016,10 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
     "type": "object",
     "properties": {
       "symbol": { "type": "string" },
-      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"], "default": "US" },
+      "market": { "type": "string", "enum": ["US", "CN", "HK", "CRYPTO"] },
       "locale": { "type": "string", "enum": ["zh-CN", "en-US"], "default": "en-US" }
     },
-    "required": ["symbol"]
+    "required": ["symbol", "market"]
   }
 }
 ```
@@ -1046,7 +1046,7 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
 {
   "name": "gprophet_balance",
   "description": "Check current points balance, quota usage, and API key info. Free.",
-  "inputSchema": { "type": "object", "properties": {} }
+  "inputSchema": { "type": "object", "properties": {}, "required": [] }
 }
 ```
 
@@ -1056,7 +1056,7 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
 {
   "name": "gprophet_info",
   "description": "Get API metadata: supported markets, algorithms, pricing table. Free.",
-  "inputSchema": { "type": "object", "properties": {} }
+  "inputSchema": { "type": "object", "properties": {}, "required": [] }
 }
 ```
 ---
