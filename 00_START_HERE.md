@@ -192,7 +192,7 @@ gprophet-api/
 
 ## Version Info
 
-- **Current Version**: 1.0.4
+- **Current Version**: 1.0.5
 - **Release Date**: 2026-03-16
 - **Status**: ✅ Ready to use
 - **Documentation**: 100% complete
