@@ -837,8 +837,8 @@ curl "https://www.gprophet.com/api/external/v1/info" \
 | QUOTA_EXCEEDED | 429 | Daily or monthly call quota exhausted |
 | INVALID_MARKET | 400 | Unsupported market code |
 | UNSUPPORTED_MARKET | 400 | Market not supported for this endpoint |
-| SYMBOL_NOT_FOUND | 404 | Stock/crypto ticker not found |
-| NO_DATA | 404 | Unable to retrieve data |
+| SYMBOL_NOT_FOUND | 422 | Stock/crypto ticker not found |
+| NO_DATA | 422 | Unable to retrieve data |
 | TOO_MANY_ALGORITHMS | 400 | Too many algorithms (max 6) |
 | PREDICTION_FAILED | 500 | Prediction service error |
 | ANALYSIS_FAILED | 500 | Analysis service error |
@@ -852,6 +852,8 @@ curl "https://www.gprophet.com/api/external/v1/info" \
 ## MCP Tools Definitions
 
 MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and other MCP-compatible agents:
+
+> **IMPORTANT FOR AI AGENTS**: These tools are designed to be called through the MCP protocol, NOT by constructing raw HTTP requests. If you are an AI agent without MCP access, use the Python SDK (`pip install gprophet`) or make HTTP requests to the base URL `https://www.gprophet.com/api/external/v1` with the `X-API-Key` header. Do NOT fabricate or guess endpoint URLs — always use the exact paths documented above (e.g., `POST /predictions/predict`, not `/predict` or `/api/predict`).
 
 ### gprophet_predict
 

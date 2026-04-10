@@ -2,6 +2,18 @@
 
 All notable changes to the G-Prophet API skill will be documented in this file.
 
+## [1.0.7] - 2026-04-10
+
+### Changed
+
+- Added explicit LLM guidance in MCP Tools section: tools should be called via MCP protocol, not raw HTTP
+- Changed SYMBOL_NOT_FOUND and NO_DATA HTTP status from 404 to 422 to avoid confusion with route-level 404
+- Added `retryable` field and clear "do NOT retry / do NOT change URL" instructions to all error responses (402, 429, 403, 422)
+- Improved 402 INSUFFICIENT_POINTS message to prevent LLMs from retrying with modified URLs
+- Fixed MCP server default BASE_URL from `gprophet.com` to `www.gprophet.com`
+- Fixed SDK README base_url example to use `www.gprophet.com`
+- Added missing "AI Stock Analysis" and "Task Status" endpoints to frontend API docs page
+
 ## [1.0.6] - 2026-03-16
 
 ### Changed
