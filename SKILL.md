@@ -179,7 +179,7 @@ When points are insufficient, the API returns a detailed 402 response with actio
 ---
 ## Skill 1: Stock Price Prediction
 
-Predict future stock/cryptocurrency price movements using AI algorithms. Supports G-Prophet2026V1, LSTM, Transformer, and more.
+Predict future stock/cryptocurrency price movements using AI algorithms. Supports G-Prophet2026V1, G-Prophet2026V2 for CN/A-shares, LSTM, Transformer, and more.
 
 ### POST /predictions/predict
 
@@ -190,7 +190,7 @@ Predict future stock/cryptocurrency price movements using AI algorithms. Support
 | symbol | string | ✅ | - | Stock/crypto ticker (e.g. AAPL, 600519, BTCUSDT) |
 | market | string | ✅ | - | Market code: `US`, `CN`, `HK`, `CRYPTO` |
 | days | integer | No | 7 | Prediction days, range 1-30 |
-| algorithm | string | No | auto | Algorithm: `auto`, `gprophet2026v1`, `lstm`, `transformer`, `random_forest`, `ensemble` |
+| algorithm | string | No | auto | Algorithm: `auto`, `gprophet2026v1`, `gprophet2026v2` (CN only), `lstm`, `transformer`, `random_forest`, `ensemble` |
 
 **Example Request:**
 
@@ -239,7 +239,7 @@ Multi-algorithm comparison prediction. Returns results from each algorithm and t
 | symbol | string | ✅ | - | Stock/crypto ticker |
 | market | string | ✅ | - | Market code: `US`, `CN`, `HK`, `CRYPTO` |
 | days | integer | No | 5 | Prediction days, range 1-30 |
-| algorithms | string[] | No | ["gprophet2026v1","lstm","transformer","ensemble"] | Algorithm list, max 6 |
+| algorithms | string[] | No | CN: ["gprophet2026v2","gprophet2026v1","lstm","transformer","ensemble"]; other markets: ["gprophet2026v1","lstm","transformer","ensemble"] | Algorithm list, max 6. `gprophet2026v2` is CN only. |
 
 **Example Request:**
 
@@ -247,7 +247,7 @@ Multi-algorithm comparison prediction. Returns results from each algorithm and t
 curl -X POST "https://www.gprophet.com/api/external/v1/predictions/compare" \
   -H "X-API-Key: gp_sk_[REDACTED]_your_key" \
   -H "Content-Type: application/json" \
-  -d '{"symbol": "TSLA", "market": "US", "days": 5, "algorithms": ["gprophet2026v1", "lstm", "transformer"]}'
+  -d '{"symbol": "600519", "market": "CN", "days": 5, "algorithms": ["gprophet2026v2", "gprophet2026v1", "lstm"]}'
 ```
 
 **Example Response:**
@@ -256,33 +256,41 @@ curl -X POST "https://www.gprophet.com/api/external/v1/predictions/compare" \
 {
   "success": true,
   "data": {
-    "symbol": "TSLA",
-    "name": "Tesla Inc.",
-    "market": "US",
-    "current_price": 245.00,
+    "symbol": "600519",
+    "name": "贵州茅台",
+    "market": "CN",
+    "current_price": 1680.00,
     "prediction_days": 5,
     "results": [
       {
+        "algorithm": "gprophet2026v2",
+        "predicted_price": 1728.40,
+        "change_percent": 2.88,
+        "direction": "up",
+        "confidence": 0.84,
+        "success": true
+      },
+      {
         "algorithm": "gprophet2026v1",
-        "predicted_price": 252.30,
-        "change_percent": 2.98,
+        "predicted_price": 1720.50,
+        "change_percent": 2.41,
         "direction": "up",
         "confidence": 0.82,
         "success": true
       },
       {
         "algorithm": "lstm",
-        "predicted_price": 248.10,
-        "change_percent": 1.27,
+        "predicted_price": 1695.30,
+        "change_percent": 0.91,
         "direction": "up",
         "confidence": 0.71,
         "success": true
       }
     ],
-    "best_algorithm": "gprophet2026v1",
+    "best_algorithm": "gprophet2026v2",
     "consensus_direction": "up",
-    "average_predicted_price": 250.20,
-    "points_consumed": 60
+    "average_predicted_price": 1714.73,
+    "points_consumed": 30
   }
 }
 ```
@@ -860,7 +868,7 @@ MCP (Model Context Protocol) tool definitions for use with Claude, Kiro, and oth
 ```json
 {
   "name": "gprophet_predict",
-  "description": "Predict stock/crypto price using AI. Markets: US, CN, HK, CRYPTO. Algorithms: auto, gprophet2026v1, lstm, transformer, random_forest, ensemble. IMPORTANT: The response includes 'symbol', 'name' (official stock name), and 'market' fields — always use these values directly, never infer or fabricate the stock name from the symbol.",
+  "description": "Predict stock/crypto price using AI. Markets: US, CN, HK, CRYPTO. Algorithms: auto, gprophet2026v1, gprophet2026v2 (CN only), lstm, transformer, random_forest, ensemble. IMPORTANT: The response includes 'symbol', 'name' (official stock name), and 'market' fields — always use these values directly, never infer or fabricate the stock name from the symbol.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -1177,7 +1185,8 @@ Run the standalone MCP server for AI agent integration:
 | Algorithm | Description |
 |-----------|-------------|
 | auto | Automatically select the best algorithm |
-| gprophet2026v1 | G-Prophet2026V1 proprietary model (recommended) |
+| gprophet2026v1 | G-Prophet2026V1 proprietary model |
+| gprophet2026v2 | G-Prophet2026V2 A-share model, CN only |
 | lstm | Long Short-Term Memory network |
 | transformer | Transformer model |
 | random_forest | Random Forest |

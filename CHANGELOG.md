@@ -2,6 +2,14 @@
 
 All notable changes to the G-Prophet API skill will be documented in this file.
 
+## [1.0.8] - 2026-05-13
+
+### Changed
+
+- Added G-Prophet2026V2 to prediction and MCP tool documentation.
+- Documented that G-Prophet2026V2 is exposed only for CN/A-share predictions.
+- Updated comparison examples so CN defaults include V2 first and V1 remains available as fallback.
+
 ## [1.0.7] - 2026-04-10
 
 ### Changed
